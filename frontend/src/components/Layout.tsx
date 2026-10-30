@@ -10,6 +10,7 @@ import {
   HandCoins,
   LayoutDashboard,
   LogOut,
+  MonitorDown,
   Menu,
   Settings,
   ShieldCheck,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useAuth, type Role } from '../lib/auth'
 import { ROLE_LABEL } from '../lib/format'
+import { useInstallPrompt } from '../lib/install'
 import { Avatar, Button, Modal, Spinner, cx } from './ui'
 
 interface NavItem {
@@ -103,6 +105,7 @@ function useIdleLogout(minutes: number, onTimeout: () => void) {
 
 export default function Layout() {
   const { user, logout, can, settings } = useAuth()
+  const pwa = useInstallPrompt()
   const [open, setOpen] = useState(false)
   const loc = useLocation()
   const idleMin = Number(settings.sesion_inactividad_min) || 15
@@ -187,6 +190,11 @@ export default function Layout() {
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden text-xs text-slate-400 md:inline">Cierre automático tras {idleMin} min de inactividad</span>
+            {pwa.canInstall && (
+              <Button variant="outline" size="sm" icon={<MonitorDown className="size-4" />} onClick={pwa.install}>
+                Instalar app
+              </Button>
+            )}
             <Button variant="ghost" size="sm" icon={<LogOut className="size-4" />} onClick={() => logout()}>
               Salir
             </Button>

@@ -2,6 +2,7 @@ package api
 
 import (
 	_ "embed"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -173,6 +174,7 @@ func (s *Server) routes() {
 
 // spaHandler sirve el frontend compilado con fallback a index.html.
 func spaHandler(dir string) http.Handler {
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
 	fs := http.FileServer(http.Dir(dir))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := filepath.Join(dir, filepath.Clean("/"+r.URL.Path))

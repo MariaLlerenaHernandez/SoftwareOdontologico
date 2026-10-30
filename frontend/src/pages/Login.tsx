@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { CalendarCheck2, KeyRound, Lock, Mail, ShieldCheck, Smile } from 'lucide-react'
+import { CalendarCheck2, KeyRound, Lock, Mail, MonitorDown, ShieldCheck, Smile } from 'lucide-react'
 import { api } from '../lib/api'
 import { useAuth, type User } from '../lib/auth'
+import { useInstallPrompt } from '../lib/install'
 import { Button, ErrorBox, Field, Input, Notice } from '../components/ui'
 
 const DEMO = [
@@ -14,6 +15,7 @@ const DEMO = [
 
 export default function Login() {
   const { login, logoutReason } = useAuth()
+  const pwa = useInstallPrompt()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [mfaToken, setMfaToken] = useState<string | null>(null)
@@ -126,6 +128,12 @@ export default function Login() {
               </button>
             )}
           </form>
+
+          {pwa.canInstall && (
+            <Button variant="outline" className="mt-4 w-full" icon={<MonitorDown className="size-4" />} onClick={pwa.install}>
+              Instalar SIGO-Dental en este equipo
+            </Button>
+          )}
 
           {!mfaToken && (
             <div className="mt-10 rounded-xl border border-dashed border-slate-300 bg-white p-4">
