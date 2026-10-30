@@ -39,6 +39,8 @@ type Config struct {
 	AllowedOrigin string
 	StaticDir     string
 	Location      *time.Location
+	Notifier      Notifier
+	StripeKey     string
 }
 
 type Server struct {
@@ -60,6 +62,9 @@ func New(pool *pgxpool.Pool, cfg Config, files *security.FileCipher) *Server {
 		limiter:  newLoginLimiter(),
 		notifier: SimulatedNotifier{},
 		mux:      http.NewServeMux(),
+	}
+	if cfg.Notifier != nil {
+		s.notifier = cfg.Notifier
 	}
 	s.routes()
 	return s

@@ -196,13 +196,67 @@ SistemaOdontologico/
 
 ---
 
-## 6. Integraciones externas (alcance académico)
+## 6. Integraciones externas (sección 7.1 del SRS)
 
-Según la sección 7.1 del SRS, estas integraciones quedan **simuladas** tras interfaces intercambiables:
+Las claves se configuran en un archivo `.env` en la raíz del proyecto. Para crearlo, copie `.env.example` y complete los datos. Docker y `go run .` lo leen automáticamente. Si un bloque se deja vacío, ese canal funciona en **modo simulado** y la demo sigue funcionando. La pantalla *Notificaciones* indica qué canales envían de verdad.
 
-- **Mensajería** (Meta Cloud API / Twilio): el `Notifier` registra cada mensaje en *Notificaciones*. Basta con implementar la interfaz `Notifier` para usar un proveedor real.
-- **Autoridad tributaria**: se genera la clave de acceso válida (módulo 11) y el estado *autorizada* en ambiente de pruebas.
-- **Pasarela de pagos**: los pagos con tarjeta o transferencia registran el número de autorización.
-- **PACS/DICOM**: los `.dcm` se almacenan y descargan cifrados. La visualización 3D queda para la Fase 2, como indica el SRS.
+| Integración | Proveedor | Estado |
+|---|---|---|
+| Correo electrónico | SMTP (Gmail) | Real |
+| SMS | Twilio | Real (cuenta de prueba) |
+| WhatsApp | Twilio Sandbox | Real (cuenta de prueba) |
+| Pagos con tarjeta | Stripe Checkout | Real en modo prueba |
+| Factura electrónica | XML esquema SRI `factura` v1.1.0 | XML real; falta firma XAdES y envío al SRI |
+| PACS/DICOM | — | Fase 2 según el SRS (los `.dcm` se guardan cifrados) |
 
-> **Producción**: defina `JWT_SECRET` y `FILE_ENCRYPTION_KEY` (ver `.env.example`), active TLS 1.3 en el proxy y cifrado en reposo del volumen de la BD, y cambie las contraseñas de demostración.
+### 6.1 Correo (Gmail)
+1. Active la verificación en dos pasos en su cuenta de Google.
+2. Entre a https://myaccount.google.com/apppasswords y cree una contraseña de aplicación llamada "SIGO-Dental".
+3. En `.env`: `SMTP_USER=sucorreo@gmail.com` y `SMTP_PASSWORD=` con la clave de 16 letras, sin espacios.
+4. Para probarlo, ponga su correo en un paciente, cambie su canal preferido a *Correo electrónico* y agéndele una cita.
+
+### 6.2 SMS y WhatsApp (Twilio)
+1. Cree una cuenta gratuita en https://www.twilio.com/try-twilio y verifique su número de celular.
+2. En la consola copie el **Account SID** y el **Auth Token** a `TWILIO_ACCOUNT_SID` y `TWILIO_AUTH_TOKEN`.
+3. **SMS:** pulse *Get a phone number* y copie el número a `TWILIO_SMS_FROM`, por ejemplo `+1XXXXXXXXXX`. En cuenta de prueba solo se puede enviar a números verificados.
+4. **WhatsApp:** en *Messaging → Try it out → Send a WhatsApp message*, envíe desde su WhatsApp el mensaje `join <código>` al número del sandbox. Luego ponga `TWILIO_WHATSAPP_FROM=+14155238886`.
+5. Ponga su número en un paciente, con el formato `+593 9X XXX XXXX`, y elija el canal SMS o WhatsApp.
+
+### 6.3 Pagos con tarjeta (Stripe, modo prueba)
+1. Cree una cuenta en https://dashboard.stripe.com/register. No hace falta activar pagos reales.
+2. En *Developers → API keys* copie la **Secret key** `sk_test_...` a `STRIPE_SECRET_KEY`.
+3. En *Facturación*, abra una factura con saldo y pulse **Cobrar con tarjeta (Stripe)**. Se abre la página segura de Stripe; use la tarjeta de prueba `4242 4242 4242 4242`, cualquier fecha futura y cualquier CVC.
+4. Al volver, la API verifica el pago directamente con Stripe y lo registra en la factura. Los datos de la tarjeta nunca pasan por el sistema.
+
+### 6.4 Factura electrónica (SRI)
+El botón **XML (formato SRI)** de cada factura descarga el comprobante con la estructura oficial: clave de acceso de 49 dígitos con módulo 11, tablas de identificación, IVA y formas de pago. Para la autorización real faltan dos pasos que requieren credenciales del emisor:
+1. Firmar el XML con XAdES-BES usando la firma electrónica `.p12` del RUC, emitida por una entidad certificadora.
+2. Enviarlo a los web services de *Recepción* y *Autorización* del SRI, primero en el ambiente de pruebas `celcer.sri.gob.ec`.
+
+Después de editar `.env`, reinicie el sistema:
+
+```bash
+docker compose up --build
+```
+
+> **Producción**: defina `JWT_SECRET` y `FILE_ENCRYPTION_KEY`, active TLS 1.3 en el proxy y cifrado en reposo del volumen de la BD, y cambie las contraseñas de demostración.
+
+---
+
+## 7. Despliegue en Render
+
+El repositorio incluye un `Dockerfile` en la raíz, que construye el frontend y la API en una sola imagen, y un `render.yaml` (Blueprint) que crea la base de datos y el servicio web.
+
+1. Suba los cambios a GitHub.
+2. En https://dashboard.render.com pulse **New → Blueprint** y elija este repositorio.
+3. Render detecta `render.yaml` y crea:
+   - `sigo-dental-db`: PostgreSQL gratuito.
+   - `sigo-dental`: servicio web con Docker. `JWT_SECRET` y `FILE_ENCRYPTION_KEY` se generan automáticamente.
+4. Complete las variables marcadas como *sync: false*: `STRIPE_SECRET_KEY` y, opcionalmente, `SMTP_USER` y `SMTP_PASSWORD`. Pulse **Apply**.
+5. Cuando termine el build, la app queda disponible en `https://sigo-dental.onrender.com`, o en el nombre que asigne Render. En el primer arranque se crean el esquema y los datos de demostración.
+
+Limitaciones del plan gratuito:
+- El servicio se suspende tras 15 minutos sin uso. La primera visita después tarda alrededor de 1 minuto en despertar.
+- Los archivos subidos (Rx, fotos) se guardan en disco temporal y se pierden al reiniciar.
+- La base de datos gratuita expira a los 30 días.
+- Render puede bloquear el envío SMTP en instancias gratuitas. En ese caso el correo aparecerá como *fallido* en Notificaciones. Si deja `SMTP_USER` vacío, el correo funciona en modo simulado.

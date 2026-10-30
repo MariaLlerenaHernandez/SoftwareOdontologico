@@ -11,25 +11,6 @@ import (
 	"sigo-dental/internal/domain"
 )
 
-// ------------------------------------------------ Mensajería (RF-11)
-
-// Notifier abstrae el gateway de mensajería (Meta Cloud API, Twilio, etc.).
-type Notifier interface {
-	Send(ctx context.Context, channel, recipient, message string) (provider, ref string, err error)
-}
-
-// SimulatedNotifier registra el envío sin contactar proveedores externos.
-type SimulatedNotifier struct{}
-
-func (SimulatedNotifier) Send(_ context.Context, channel, _ string, _ string) (string, string, error) {
-	provider := map[string]string{
-		"whatsapp": "meta-cloud-api (simulado)",
-		"sms":      "twilio-sms (simulado)",
-		"email":    "twilio-sendgrid (simulado)",
-	}[channel]
-	return provider, fmt.Sprintf("SIM-%d", time.Now().UnixNano()%1_000_000_000), nil
-}
-
 func (s *Server) notify(ctx context.Context, patient map[string]any, appointmentID any, kind, message string) (map[string]any, error) {
 	channel := str(patient["preferred_channel"])
 	recipient := str(patient["phone"])
@@ -41,10 +22,13 @@ func (s *Server) notify(ctx context.Context, patient map[string]any, appointment
 	if recipient == "" {
 		return nil, badRequest("El paciente no tiene un medio de contacto registrado")
 	}
-	provider, ref, err := s.notifier.Send(ctx, channel, recipient, message)
+	subject := notificationSubjects[kind] + " · " + s.settings.Get("clinica_nombre")
+	provider, ref, err := s.notifier.Send(ctx, channel, recipient, subject, message)
 	status := "enviado"
 	if err != nil {
 		status = "fallido"
+		ref = truncate("ERROR: "+err.Error(), 240)
+		slog.Warn("notificación no entregada", "channel", channel, "err", err)
 	}
 	return db.Row(ctx, s.db, `
 		INSERT INTO notifications (patient_id, appointment_id, channel, kind, recipient, message, status, provider, provider_ref)

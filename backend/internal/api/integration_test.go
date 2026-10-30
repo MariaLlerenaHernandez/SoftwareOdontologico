@@ -52,7 +52,7 @@ func (c client) do(method, path string, body any) (int, map[string]any, []any) {
 	return rr.Code, obj, arr
 }
 
-func setup(t *testing.T) (http.Handler, func(email string) client) {
+func setup(t *testing.T, mods ...func(*Config)) (http.Handler, func(email string) client) {
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
 		t.Skip("TEST_DATABASE_URL no definido: se omiten las pruebas de integración")
@@ -74,7 +74,11 @@ func setup(t *testing.T) (http.Handler, func(email string) client) {
 	if loc == nil {
 		loc = time.FixedZone("UTC-5", -5*3600)
 	}
-	s := New(pool, Config{JWTSecret: []byte("test-secret"), TokenTTL: time.Hour, UploadDir: t.TempDir(), Location: loc}, fc)
+	cfg := Config{JWTSecret: []byte("test-secret"), TokenTTL: time.Hour, UploadDir: t.TempDir(), Location: loc}
+	for _, m := range mods {
+		m(&cfg)
+	}
+	s := New(pool, cfg, fc)
 	if err := s.LoadSettings(ctx); err != nil {
 		t.Fatal(err)
 	}

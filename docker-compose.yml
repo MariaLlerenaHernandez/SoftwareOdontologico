@@ -32,6 +32,17 @@ services:
       APP_TIMEZONE: America/Guayaquil
       UPLOAD_DIR: /data/uploads
       CORS_ORIGIN: http://localhost:8081
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-SIGO-Dental}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_SMS_FROM: ${TWILIO_SMS_FROM:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      DEFAULT_COUNTRY_CODE: ${DEFAULT_COUNTRY_CODE:-+593}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
     volumes:
       - uploads:/data/uploads
     ports:

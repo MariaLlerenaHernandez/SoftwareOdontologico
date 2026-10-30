@@ -92,29 +92,29 @@ JOIN supplies s ON s.code = x.scode;
 INSERT INTO patients (first_name, last_name, document_number, birth_date, sex, email, phone, address, city, occupation,
                       emergency_name, emergency_phone, emergency_relation, guardian_name, guardian_document, guardian_phone, guardian_relation,
                       insurance_id, insurance_number, preferred_channel, created_by) VALUES
- ('María José', 'Andrade López',    '1712345678', '1988-04-12', 'F', 'mariajose.andrade@correo.com', '+593 99 123 4567', 'Av. 6 de Diciembre N32-45', 'Quito', 'Arquitecta',
+ ('María José', 'Andrade López',    '1712345678', '1988-04-12', 'F', 'mariajose.andrade@example.com', '+593 99 123 4567', 'Av. 6 de Diciembre N32-45', 'Quito', 'Arquitecta',
   'Pablo Andrade', '+593 98 765 4321', 'Esposo', NULL, NULL, NULL, NULL, 2, 'SDP-558201', 'whatsapp', 2),
- ('Juan Carlos', 'Pérez Villacís',  '1709876543', '1975-09-30', 'M', 'jc.perez@correo.com',          '+593 98 222 3344', 'Calle Los Pinos 120',      'Quito', 'Contador',
+ ('Juan Carlos', 'Pérez Villacís',  '1709876543', '1975-09-30', 'M', 'jc.perez@example.com',          '+593 98 222 3344', 'Calle Los Pinos 120',      'Quito', 'Contador',
   'Ana Villacís', '+593 99 888 1122', 'Hermana', NULL, NULL, NULL, NULL, 3, 'MSP-993012', 'sms', 2),
  ('Sofía',       'Benítez Ruiz',    '1754321098', '2015-02-18', 'F', NULL,                           '+593 97 555 6677', 'Conjunto Las Acacias, casa 8', 'Quito', 'Estudiante',
   'Rosa Ruiz', '+593 97 555 6677', 'Madre', 'Rosa Ruiz Mora', '1711122233', '+593 97 555 6677', 'Madre', 1, NULL, 'whatsapp', 2),
- ('Luis Alberto','Guerrero Paz',    '1702233445', '1958-11-03', 'M', 'luis.guerrero@correo.com',     '+593 96 101 2020', 'Av. América N25-10',       'Quito', 'Jubilado',
+ ('Luis Alberto','Guerrero Paz',    '1702233445', '1958-11-03', 'M', 'luis.guerrero@example.com',     '+593 96 101 2020', 'Av. América N25-10',       'Quito', 'Jubilado',
   'Carmen Paz', '+593 96 303 4040', 'Esposa', NULL, NULL, NULL, NULL, 3, 'MSP-118833', 'whatsapp', 2),
- ('Daniela',     'Morales Cevallos','1722334455', '1995-06-21', 'F', 'dani.morales@correo.com',      '+593 99 444 5566', 'Calle Japón E4-88',        'Quito', 'Diseñadora gráfica',
+ ('Daniela',     'Morales Cevallos','1722334455', '1995-06-21', 'F', 'dani.morales@example.com',      '+593 99 444 5566', 'Calle Japón E4-88',        'Quito', 'Diseñadora gráfica',
   'Fernando Morales', '+593 99 111 0000', 'Padre', NULL, NULL, NULL, NULL, 1, NULL, 'email', 2),
- ('Andrés',      'Salazar Mena',    '1733445566', '1982-01-15', 'M', 'andres.salazar@correo.com',    '+593 98 777 8899', 'Av. Shyris N40-22',        'Quito', 'Ingeniero civil',
+ ('Andrés',      'Salazar Mena',    '1733445566', '1982-01-15', 'M', 'andres.salazar@example.com',    '+593 98 777 8899', 'Av. Shyris N40-22',        'Quito', 'Ingeniero civil',
   'Lucía Mena', '+593 98 777 0001', 'Madre', NULL, NULL, NULL, NULL, 4, 'CEA-44120', 'whatsapp', 2),
- ('Gabriela',    'Torres Jaramillo','1744556677', '1990-08-08', 'F', 'gaby.torres@correo.com',       '+593 97 222 1100', 'Urb. El Condado, mz 4',    'Quito', 'Abogada',
+ ('Gabriela',    'Torres Jaramillo','1744556677', '1990-08-08', 'F', 'gaby.torres@example.com',       '+593 97 222 1100', 'Urb. El Condado, mz 4',    'Quito', 'Abogada',
   'Diego Jaramillo', '+593 97 222 1101', 'Esposo', NULL, NULL, NULL, NULL, 2, 'SDP-330981', 'whatsapp', 2),
  ('Mateo',       'Herrera Castro',  '1755667788', '2012-12-01', 'M', NULL,                           '+593 96 999 1234', 'Calle Rumipamba 45',       'Quito', 'Estudiante',
   'Paola Castro', '+593 96 999 1234', 'Madre', 'Paola Castro Rivas', '1716655443', '+593 96 999 1234', 'Madre', 4, 'CEA-44121', 'sms', 2),
- ('Rosa Elena',  'Chávez Ortiz',    '1700112233', '1965-03-27', 'F', 'rosa.chavez@correo.com',       '+593 95 123 9876', 'Av. Mariscal Sucre S12-30', 'Quito', 'Comerciante',
+ ('Rosa Elena',  'Chávez Ortiz',    '1700112233', '1965-03-27', 'F', 'rosa.chavez@example.com',       '+593 95 123 9876', 'Av. Mariscal Sucre S12-30', 'Quito', 'Comerciante',
   'Jorge Chávez', '+593 95 123 0000', 'Hijo', NULL, NULL, NULL, NULL, 1, NULL, 'whatsapp', 2),
- ('Fernando',    'Ríos Valencia',   '1766778899', '1979-07-19', 'M', 'fernando.rios@correo.com',     '+593 99 321 6540', 'Calle Whymper N28-15',     'Quito', 'Médico',
+ ('Fernando',    'Ríos Valencia',   '1766778899', '1979-07-19', 'M', 'fernando.rios@example.com',     '+593 99 321 6540', 'Calle Whymper N28-15',     'Quito', 'Médico',
   'Patricia Valencia', '+593 99 321 0001', 'Esposa', NULL, NULL, NULL, NULL, 3, 'MSP-772210', 'email', 2),
- ('Valentina',   'Ortega Silva',    '1777889900', '2001-10-05', 'F', 'vale.ortega@correo.com',       '+593 98 654 3210', 'Av. Colón E8-50',          'Quito', 'Estudiante universitaria',
+ ('Valentina',   'Ortega Silva',    '1777889900', '2001-10-05', 'F', 'vale.ortega@example.com',       '+593 98 654 3210', 'Av. Colón E8-50',          'Quito', 'Estudiante universitaria',
   'Marta Silva', '+593 98 654 0000', 'Madre', NULL, NULL, NULL, NULL, 1, NULL, 'whatsapp', 2),
- ('Ricardo',     'Navarrete Lema',  '1788990011', '1970-05-14', 'M', 'r.navarrete@correo.com',       '+593 97 111 2233', 'Av. Occidental N50-90',    'Quito', 'Chofer profesional',
+ ('Ricardo',     'Navarrete Lema',  '1788990011', '1970-05-14', 'M', 'r.navarrete@example.com',       '+593 97 111 2233', 'Av. Occidental N50-90',    'Quito', 'Chofer profesional',
   'Elena Lema', '+593 97 111 0000', 'Esposa', NULL, NULL, NULL, NULL, 2, 'SDP-901122', 'sms', 2);
 
 INSERT INTO medical_histories (patient_id, systemic_diseases, allergies, medications, surgical_history,
@@ -258,7 +258,7 @@ BEGIN
                     SELECT '001-001-' || lpad(num::text, 9, '0'), p.id, p.first_name || ' ' || p.last_name, p.document_number,
                            t + interval '100 min', proc.price, proc.price, proc.price, 'pagada', 'autorizada',
                            'AUT-' || upper(substr(md5(random()::text), 1, 16)),
-                           to_char(d, 'DDMMYYYY') || '01' || '1790012345001' || '2' || '001001' || lpad(num::text, 9, '0') || lpad((floor(random() * 99999999))::bigint::text, 8, '0') || '1', 2
+                           to_char(d, 'DDMMYYYY') || '01' || '1790012345001' || '1' || '001001' || lpad(num::text, 9, '0') || lpad((floor(random() * 99999999))::bigint::text, 8, '0') || '1', 2
                       FROM patients p WHERE p.id = pid
                     RETURNING id INTO inv;
 

@@ -15,6 +15,7 @@ export default function Notifications() {
   const [kind, setKind] = useState('')
   const [channel, setChannel] = useState('')
   const { data, loading, reload } = useFetch<any[]>(`/notifications${qs({ kind, channel })}`)
+  const { data: integ } = useFetch<any>('/integrations')
   const toast = useToast()
   const [busy, setBusy] = useState(false)
 
@@ -38,7 +39,13 @@ export default function Notifications() {
       <div className="mb-4">
         <Notice>
           Un proceso en segundo plano revisa la agenda cada minuto y envía recordatorios <strong>48 h</strong> y <strong>24 h</strong> antes de cada cita por el canal preferido del paciente.
-          En este entorno los gateways (Meta Cloud API para WhatsApp y Twilio para SMS/Email) están <strong>simulados</strong>: los mensajes se registran aquí sin salir del sistema.
+          <span className="mt-2 flex flex-wrap gap-2">
+            {(['email', 'sms', 'whatsapp'] as const).map((ch) => (
+              <Badge key={ch} tone={integ?.[ch] ? 'emerald' : 'slate'}>
+                {{ email: 'Correo (SMTP)', sms: 'SMS (Twilio)', whatsapp: 'WhatsApp (Twilio)' }[ch]}: {integ?.[ch] ? 'envío real' : 'simulado'}
+              </Badge>
+            ))}
+          </span>
         </Notice>
       </div>
       <Card padded={false}>

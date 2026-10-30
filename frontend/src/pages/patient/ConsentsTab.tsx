@@ -134,7 +134,7 @@ function SignConsent({ consent, patient, onClose, onSigned }: { consent: any; pa
   const [method, setMethod] = useState<'firma' | 'otp'>('firma')
   const [name, setName] = useState('')
   const [doc, setDoc] = useState('')
-  const [otp, setOtp] = useState<{ sent_to: string; channel: string; demo_code: string } | null>(null)
+  const [otp, setOtp] = useState<{ sent_to: string; channel: string; demo_code?: string } | null>(null)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -198,7 +198,7 @@ function SignConsent({ consent, patient, onClose, onSigned }: { consent: any; pa
               <>
                 <Notice tone="emerald">
                   Código enviado por {otp.channel} a <strong>{otp.sent_to}</strong>. Vence en 10 minutos.
-                  <span className="mt-1 block text-xs text-emerald-700/80">Modo demostración (gateway simulado): código <code className="rounded bg-white px-1 font-mono font-bold">{otp.demo_code}</code></span>
+                  {otp.demo_code && <span className="mt-1 block text-xs text-emerald-700/80">Canal simulado (sin proveedor configurado): código <code className="rounded bg-white px-1 font-mono font-bold">{otp.demo_code}</code></span>}
                 </Notice>
                 <Field label="Código recibido por el paciente">
                   <Input inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} className="max-w-40 text-center font-mono text-lg tracking-[0.3em]" />

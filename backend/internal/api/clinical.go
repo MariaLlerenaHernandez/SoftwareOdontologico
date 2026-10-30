@@ -468,8 +468,14 @@ func (s *Server) sendConsentOTP(c *Ctx) error {
 		return err
 	}
 	c.Audit(k["id"], i64(k["patient_id"]), map[string]any{"otp_sent_to": n["recipient"], "channel": n["channel"]})
-	// El proveedor de mensajería es simulado: se devuelve el código para la demostración.
-	return c.OK(map[string]any{"sent_to": n["recipient"], "channel": n["channel"], "demo_code": code, "expires_in": 600})
+	if n["status"] == "fallido" {
+		return &HTTPError{Code: 502, Message: "No se pudo enviar el código: " + strings.TrimPrefix(str(n["provider_ref"]), "ERROR: ")}
+	}
+	out := map[string]any{"sent_to": n["recipient"], "channel": n["channel"], "expires_in": 600}
+	if !s.notifier.Live(str(n["channel"])) {
+		out["demo_code"] = code // canal simulado: se muestra el código para poder completar la demostración
+	}
+	return c.OK(out)
 }
 
 func (s *Server) verifyConsentOTP(c *Ctx) error {

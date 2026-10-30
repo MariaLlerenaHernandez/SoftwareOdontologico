@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,7 +24,31 @@ func env(key, def string) string {
 	return def
 }
 
+// loadDotEnv carga variables desde .env (raíz del proyecto o carpeta actual)
+// sin sobrescribir las que ya existen en el entorno.
+func loadDotEnv() {
+	for _, p := range []string{".env", "../.env"} {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			k, v, ok := strings.Cut(line, "=")
+			if !ok || strings.HasPrefix(line, "#") {
+				continue
+			}
+			k, v = strings.TrimSpace(k), strings.Trim(strings.TrimSpace(v), `"'`)
+			if _, exists := os.LookupEnv(k); !exists && v != "" {
+				os.Setenv(k, v)
+			}
+		}
+		return
+	}
+}
+
 func main() {
+	loadDotEnv()
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -64,6 +89,22 @@ func main() {
 		slog.Error("cifrado", "err", err)
 		os.Exit(1)
 	}
+	var smtpCfg *api.SMTPConfig
+	if os.Getenv("SMTP_USER") != "" && os.Getenv("SMTP_PASSWORD") != "" {
+		smtpCfg = &api.SMTPConfig{Host: env("SMTP_HOST", "smtp.gmail.com"), Port: env("SMTP_PORT", "587"), User: os.Getenv("SMTP_USER"),
+			Password: os.Getenv("SMTP_PASSWORD"), From: os.Getenv("SMTP_FROM"), FromName: env("SMTP_FROM_NAME", "SIGO-Dental")}
+	}
+	var twilioCfg *api.TwilioConfig
+	if os.Getenv("TWILIO_ACCOUNT_SID") != "" && os.Getenv("TWILIO_AUTH_TOKEN") != "" {
+		twilioCfg = &api.TwilioConfig{AccountSID: os.Getenv("TWILIO_ACCOUNT_SID"), AuthToken: os.Getenv("TWILIO_AUTH_TOKEN"),
+			SMSFrom: os.Getenv("TWILIO_SMS_FROM"), WhatsAppFrom: os.Getenv("TWILIO_WHATSAPP_FROM"), DefaultCountryCode: env("DEFAULT_COUNTRY_CODE", "+593")}
+	}
+	notifier := api.NewGatewayNotifier(smtpCfg, twilioCfg)
+	for _, ch := range []string{"email", "sms", "whatsapp"} {
+		slog.Info("canal de notificación", "canal", ch, "real", notifier.Live(ch))
+	}
+	slog.Info("pasarela de pagos Stripe", "activa", os.Getenv("STRIPE_SECRET_KEY") != "")
+
 	srv := api.New(pool, api.Config{
 		JWTSecret:     []byte(secret),
 		TokenTTL:      8 * time.Hour,
@@ -71,6 +112,8 @@ func main() {
 		AllowedOrigin: env("CORS_ORIGIN", "http://localhost:5173"),
 		StaticDir:     env("STATIC_DIR", ""),
 		Location:      loc,
+		Notifier:      notifier,
+		StripeKey:     os.Getenv("STRIPE_SECRET_KEY"),
 	}, cipher)
 	if err := srv.LoadSettings(ctx); err != nil {
 		slog.Error("configuración", "err", err)

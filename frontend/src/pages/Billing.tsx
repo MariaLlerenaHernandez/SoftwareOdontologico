@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Ban, FileText, Plus, Printer, Receipt, Search, Trash2, Wallet } from 'lucide-react'
-import { api, qs } from '../lib/api'
+import { Ban, CreditCard, FileCode2, FileText, Plus, Printer, Receipt, Search, Trash2, Wallet } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { api, qs, tokenStore } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useDebounced, useFetch } from '../lib/hooks'
 import { INVOICE_STATUS, PAY_METHOD, addDays, fmtDate, fmtDateTime, isoDate, money } from '../lib/format'
@@ -19,6 +20,28 @@ export default function Billing() {
   const [creating, setCreating] = useState(false)
   const [viewing, setViewing] = useState<number | null>(null)
   const cur = settings.moneda
+  const toast = useToast()
+  const [params, setParams] = useSearchParams()
+
+  // Retorno desde Stripe Checkout: se verifica la sesión con la API antes de registrar el pago.
+  useEffect(() => {
+    const invoice = Number(params.get('invoice'))
+    const session = params.get('stripe_session')
+    if (!invoice) return
+    setParams({}, { replace: true })
+    if (params.get('stripe_cancel')) {
+      toast.warning('Pago con tarjeta cancelado')
+      setViewing(invoice)
+      return
+    }
+    if (!session) return
+    api
+      .post(`/invoices/${invoice}/stripe-confirm`, { session_id: session })
+      .then((r) => toast.success(r.already_registered ? 'El pago ya estaba registrado' : 'Pago con tarjeta aprobado por Stripe y registrado'))
+      .catch((e) => toast.error(e.message))
+      .finally(() => (reload(), setViewing(invoice)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const totals = useMemo(() => {
     const ok = (data ?? []).filter((i) => i.status !== 'anulada')
@@ -249,8 +272,35 @@ function InvoiceView({ id, onClose, onChanged }: { id: number | null; onClose: (
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const { data: integ } = useFetch<any>('/integrations')
   if (!id) return null
   const cur = settings.moneda
+
+  const downloadXML = async () => {
+    try {
+      const res = await fetch(`/api/invoices/${id}/xml`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } })
+      if (!res.ok) throw new Error('No se pudo generar el XML')
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(await res.blob())
+      a.download = `factura-${inv.number}.xml`
+      a.click()
+    } catch (e: any) {
+      toast.error(e.message)
+    }
+  }
+
+  const payWithStripe = async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const amount = Number(pay.amount) || inv.balance
+      const r = await api.post(`/invoices/${id}/stripe-checkout`, { amount, return_url: `${window.location.origin}/facturacion` })
+      window.location.href = r.url
+    } catch (e: any) {
+      setError(e.message)
+      setBusy(false)
+    }
+  }
 
   const run = async (fn: () => Promise<any>, msg: string) => {
     setBusy(true)
@@ -270,7 +320,7 @@ function InvoiceView({ id, onClose, onChanged }: { id: number | null; onClose: (
 
   return (
     <Modal open onClose={onClose} size="lg" title="Comprobante electrónico" printable
-      footer={<><Button variant="secondary" onClick={onClose}>Cerrar</Button>{inv && <Button icon={<Printer className="size-4" />} onClick={() => window.print()}>Imprimir RIDE / PDF</Button>}</>}>
+      footer={<><Button variant="secondary" onClick={onClose}>Cerrar</Button>{inv && <Button variant="secondary" icon={<FileCode2 className="size-4" />} onClick={downloadXML}>XML (formato SRI)</Button>}{inv && <Button icon={<Printer className="size-4" />} onClick={() => window.print()}>Imprimir RIDE / PDF</Button>}</>}>
       {!inv ? <Spinner /> : (
         <div className="space-y-5 text-sm text-slate-700">
           <div className="grid gap-4 border-b-2 border-brand-700 pb-4 sm:grid-cols-2">
@@ -337,6 +387,14 @@ function InvoiceView({ id, onClose, onChanged }: { id: number | null; onClose: (
                 {pay.method !== 'efectivo' && <Input placeholder="Referencia" value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} className="w-40 py-1.5" />}
                 <Button size="sm" loading={busy} onClick={() => run(() => api.post(`/invoices/${inv.id}/payments`, { ...pay, amount: Number(pay.amount) }), 'Pago registrado')}>Registrar</Button>
               </div>
+              {integ?.stripe && (
+                <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
+                  <Button size="sm" variant="outline" icon={<CreditCard className="size-4" />} loading={busy} onClick={payWithStripe}>
+                    Cobrar {money(Number(pay.amount) || inv.balance, cur)} con tarjeta (Stripe)
+                  </Button>
+                  <span className="text-xs text-slate-500">Se abrirá la página segura de pago. En modo de prueba use la tarjeta 4242 4242 4242 4242.</span>
+                </div>
+              )}
             </div>
           )}
           {inv.status !== 'anulada' && can('admin') && (
