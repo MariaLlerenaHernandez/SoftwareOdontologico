@@ -1,0 +1,50 @@
+name: sigo-dental
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sigo-dental-db
+    environment:
+      POSTGRES_DB: sigo_dental
+      POSTGRES_USER: sigo
+      POSTGRES_PASSWORD: sigo_dental_2026
+      TZ: America/Guayaquil
+    ports:
+      - "5435:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sigo -d sigo_dental"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    container_name: sigo-dental-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://sigo:sigo_dental_2026@db:5432/sigo_dental?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-cambie-este-secreto-en-produccion-sigo-dental-2026}
+      FILE_ENCRYPTION_KEY: ${FILE_ENCRYPTION_KEY:-clave-aes-256-de-archivos-clinicos-sigo}
+      APP_TIMEZONE: America/Guayaquil
+      UPLOAD_DIR: /data/uploads
+      CORS_ORIGIN: http://localhost:8081
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      - "8080:8080"
+
+  web:
+    build: ./frontend
+    container_name: sigo-dental-web
+    depends_on:
+      - api
+    ports:
+      - "8081:80"
+
+volumes:
+  pgdata:
+  uploads:

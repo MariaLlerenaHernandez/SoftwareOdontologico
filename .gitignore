@@ -1,0 +1,23 @@
+# Dependencias y compilados
+node_modules/
+frontend/dist/
+*.exe
+backend/sigo-dental
+backend/uploads/
+uploads/
+
+# Entorno y secretos
+.env
+*.local
+
+# Temporales
+.tmp-*
+*.log
+coverage.out
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
