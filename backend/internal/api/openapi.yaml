@@ -1,0 +1,508 @@
+openapi: 3.0.3
+info:
+  title: SIGO-Dental API
+  version: 1.0.0
+  description: |
+    API REST del Sistema Integral de Gestión Odontológica y Expediente Clínico Digital.
+
+    **Autenticación:** JWT Bearer (`POST /auth/login`). Si el usuario tiene MFA activo, el login
+    devuelve `mfa_token` y debe completarse con `POST /auth/mfa/verify`.
+
+    **Autorización:** RBAC por rol (`admin`, `recepcion`, `odontologo`, `asistente`, `auditor`).
+    Cada operación indica los roles permitidos. Toda acción de escritura y toda lectura de
+    información clínica queda registrada en el log de auditoría inmutable.
+
+    **Errores:** `{ "error": "mensaje", "code": "opcional" }`. Códigos relevantes:
+    `chair_overlap` (RN-03), `immutable` (RN-01), `allergy_conflict`, `mfa_required`.
+servers:
+  - url: /api
+security:
+  - bearer: []
+tags:
+  - name: Autenticación
+  - name: Administración
+  - name: Pacientes
+  - name: Expediente clínico
+  - name: Planes y presupuestos
+  - name: Agenda
+  - name: Facturación y caja
+  - name: Honorarios
+  - name: Inventario
+  - name: Reportes
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer }
+    from:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+    to:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+  responses:
+    Error:
+      description: Error de validación, permiso o regla de negocio
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Ok:
+      description: Operación exitosa
+      content:
+        application/json:
+          schema: { type: object }
+    List:
+      description: Listado
+      content:
+        application/json:
+          schema: { type: array, items: { type: object } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        code: { type: string, enum: [chair_overlap, immutable, allergy_conflict, mfa_required, unauthorized, forbidden] }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: dra.torres@sigodental.com }
+        password: { type: string, example: Sigo2026! }
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: '#/components/schemas/User' }
+        mfa_required: { type: boolean }
+        mfa_token: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        full_name: { type: string }
+        role: { type: string, enum: [admin, recepcion, odontologo, asistente, auditor] }
+        specialty: { type: string, nullable: true }
+        mfa_enabled: { type: boolean }
+        mfa_verified: { type: boolean }
+    Patient:
+      type: object
+      required: [first_name, last_name, document_number, birth_date, sex]
+      properties:
+        first_name: { type: string }
+        last_name: { type: string }
+        document_type: { type: string, enum: [cedula, pasaporte, ruc] }
+        document_number: { type: string }
+        birth_date: { type: string, format: date }
+        sex: { type: string, enum: [F, M, O] }
+        email: { type: string }
+        phone: { type: string }
+        address: { type: string }
+        city: { type: string }
+        occupation: { type: string }
+        emergency_name: { type: string }
+        emergency_phone: { type: string }
+        emergency_relation: { type: string }
+        guardian_name: { type: string, description: Obligatorio si el paciente es menor de edad }
+        guardian_document: { type: string }
+        guardian_phone: { type: string }
+        guardian_relation: { type: string }
+        insurance_id: { type: integer, nullable: true }
+        insurance_number: { type: string }
+        preferred_channel: { type: string, enum: [whatsapp, sms, email] }
+        notes: { type: string }
+    MedicalHistory:
+      type: object
+      properties:
+        systemic_diseases: { type: string }
+        allergies: { type: string }
+        medications: { type: string }
+        surgical_history: { type: string }
+        penicillin_allergy: { type: boolean }
+        latex_allergy: { type: boolean }
+        anesthesia_allergy: { type: boolean }
+        anticoagulated: { type: boolean }
+        coagulopathy: { type: boolean }
+        diabetes: { type: boolean }
+        hypertension: { type: boolean }
+        heart_disease: { type: boolean }
+        pregnant: { type: boolean }
+        smoker: { type: boolean }
+        other_conditions: { type: string }
+    Finding:
+      type: object
+      required: [tooth, condition]
+      properties:
+        tooth: { type: integer, description: Pieza en notación FDI (11-48 permanentes, 51-85 temporales), example: 16 }
+        surface: { type: string, enum: [M, D, O, V, L], description: Obligatoria para caries, restauración, sellante y fractura }
+        condition:
+          type: string
+          enum: [caries, restauracion, sellante, fractura, endodoncia, endodoncia_requerida, corona, implante, protesis_fija, protesis_removible, exodoncia, ausente]
+        status: { type: string, enum: [existente, planificado, realizado] }
+        notes: { type: string }
+    PerioExam:
+      type: object
+      properties:
+        notes: { type: string }
+        teeth:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              pd: { type: array, items: { type: number }, minItems: 6, maxItems: 6, description: Profundidad de sondaje (mm), 3 vestibulares + 3 linguales }
+              gm: { type: array, items: { type: number }, description: Margen gingival (mm, positivo = recesión) }
+              bleeding: { type: array, items: { type: boolean } }
+              furcation: { type: integer, minimum: 0, maximum: 3 }
+              mobility: { type: integer, minimum: 0, maximum: 3 }
+              missing: { type: boolean }
+    Note:
+      type: object
+      properties:
+        appointment_id: { type: integer }
+        parent_note_id: { type: integer, description: Si se envía, la nota se registra como adenda }
+        subjective: { type: string }
+        objective: { type: string }
+        assessment: { type: string }
+        plan: { type: string }
+    PlanItem:
+      type: object
+      required: [procedure_id]
+      properties:
+        phase: { type: integer, minimum: 1 }
+        procedure_id: { type: integer }
+        tooth: { type: integer, nullable: true }
+        surface: { type: string }
+        price: { type: number, description: Opcional; por defecto el precio del catálogo }
+        discount_pct: { type: number }
+        description: { type: string }
+    Appointment:
+      type: object
+      required: [patient_id, dentist_id, chair_id, starts_at, ends_at]
+      properties:
+        patient_id: { type: integer }
+        dentist_id: { type: integer }
+        chair_id: { type: integer }
+        starts_at: { type: string, format: date-time }
+        ends_at: { type: string, format: date-time }
+        reason: { type: string }
+        notes: { type: string }
+        plan_item_id: { type: integer, description: Ítem aprobado del plan que se agenda }
+        notify: { type: boolean, default: true }
+    Payment:
+      type: object
+      required: [method, amount]
+      properties:
+        method: { type: string, enum: [efectivo, tarjeta_credito, tarjeta_debito, transferencia, seguro] }
+        amount: { type: number }
+        reference: { type: string, description: Obligatoria para tarjetas y transferencias }
+    Invoice:
+      type: object
+      required: [patient_id, items]
+      properties:
+        patient_id: { type: integer }
+        customer_name: { type: string }
+        customer_document: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              plan_item_id: { type: integer, description: Procedimiento realizado del plan (precio tomado del plan) }
+              procedure_id: { type: integer }
+              dentist_id: { type: integer }
+              description: { type: string }
+              quantity: { type: number }
+              unit_price: { type: number }
+              discount: { type: number }
+        payments: { type: array, items: { $ref: '#/components/schemas/Payment' } }
+
+paths:
+  /health:
+    get:
+      tags: [Administración]
+      summary: Estado del servicio
+      security: []
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión (bloqueo tras 5 intentos fallidos en 15 min)
+      security: []
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+      responses:
+        '200': { description: Token o desafío MFA, content: { application/json: { schema: { $ref: '#/components/schemas/LoginResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/mfa/verify:
+    post:
+      tags: [Autenticación]
+      summary: Completar login con código TOTP
+      security: []
+      requestBody: { content: { application/json: { schema: { type: object, properties: { mfa_token: { type: string }, code: { type: string } } } } } }
+      responses: { '200': { description: Sesión con mfa=true }, '401': { $ref: '#/components/responses/Error' } }
+  /auth/me:
+    get: { tags: [Autenticación], summary: Usuario autenticado, responses: { '200': { description: Usuario, content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } } } }
+  /auth/change-password:
+    post: { tags: [Autenticación], summary: Cambiar contraseña (política de complejidad), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/mfa/setup:
+    post: { tags: [Autenticación], summary: Generar secreto TOTP y URI otpauth, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/mfa/enable:
+    post: { tags: [Autenticación], summary: Activar MFA verificando un código, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /auth/mfa/disable:
+    post: { tags: [Autenticación], summary: Desactivar MFA (requiere contraseña), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /settings/public:
+    get: { tags: [Administración], summary: Parámetros visibles para todos los roles, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /settings:
+    get: { tags: [Administración], summary: 'Configuración global · admin', responses: { '200': { $ref: '#/components/responses/List' } } }
+    put: { tags: [Administración], summary: 'Actualizar parámetros (mapa clave→valor) · admin', responses: { '200': { $ref: '#/components/responses/List' } } }
+  /users:
+    get: { tags: [Administración], summary: 'Usuarios · admin', responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Administración], summary: 'Crear usuario · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /users/{id}:
+    put: { tags: [Administración], summary: 'Editar usuario / rol / estado · admin', parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /users/{id}/reset-password:
+    post: { tags: [Administración], summary: 'Restablecer contraseña y MFA · admin', parameters: [{ $ref: '#/components/parameters/id' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /staff:
+    get: { tags: [Administración], summary: Personal activo (para selectores), responses: { '200': { $ref: '#/components/responses/List' } } }
+  /catalog/{name}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string, enum: [offices, chairs, insurances, procedures, consent-templates] } }]
+    get: { tags: [Administración], summary: Listar catálogo, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Administración], summary: 'Crear registro · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /catalog/{name}/{id}:
+    parameters: [{ name: name, in: path, required: true, schema: { type: string } }, { $ref: '#/components/parameters/id' }]
+    put: { tags: [Administración], summary: 'Editar registro · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /audit:
+    get:
+      tags: [Administración]
+      summary: 'Log de auditoría inmutable · admin, auditor'
+      parameters:
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: patient_id, in: query, schema: { type: integer } }
+        - { name: user_id, in: query, schema: { type: integer } }
+        - { name: q, in: query, schema: { type: string } }
+      responses: { '200': { $ref: '#/components/responses/List' } }
+  /admin/backup:
+    get: { tags: [Administración], summary: 'Respaldo JSON de todas las tablas · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /patients:
+    get:
+      tags: [Pacientes]
+      summary: Buscar pacientes (nombre, documento, HC, teléfono)
+      parameters: [{ name: q, in: query, schema: { type: string } }, { name: limit, in: query, schema: { type: integer } }]
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      tags: [Pacientes]
+      summary: 'Registrar paciente (RF-01) · admin, recepcion, odontologo'
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Patient' } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' }, '409': { $ref: '#/components/responses/Error' } }
+  /patients/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Pacientes], summary: Ficha con alertas médicas y estadísticas, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Pacientes], summary: Actualizar ficha, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Patient' } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/history:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Pacientes], summary: Anamnesis y alertas (RF-02), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Pacientes], summary: 'Registrar anamnesis · recepcion, odontologo, asistente', requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/MedicalHistory' } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/vitals:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Pacientes], summary: Signos vitales, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Pacientes], summary: 'Registrar signos vitales · odontologo, asistente', responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/appointments:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Pacientes], summary: Historial de citas del paciente, responses: { '200': { $ref: '#/components/responses/List' } } }
+
+  /patients/{id}/odontogram:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Hallazgos del odontograma (RF-03), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Expediente clínico], summary: 'Registrar hallazgo · odontologo', requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Finding' } } } }, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /odontogram/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    patch: { tags: [Expediente clínico], summary: Cambiar estado del hallazgo, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    delete: { tags: [Expediente clínico], summary: 'Eliminar hallazgo (bloqueado si está realizado · RN-01)', responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } } }
+  /patients/{id}/perio:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Exámenes periodontales (RF-04), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Expediente clínico], summary: Registrar periodontograma (calcula NIC y resumen), requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/PerioExam' } } } }, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/notes:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Bitácora SOEP (RF-05), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Expediente clínico], summary: Crear nota o adenda, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Note' } } } }, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /notes/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    put: { tags: [Expediente clínico], summary: 'Editar nota (solo autor, antes de firma y dentro del plazo)', responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } } }
+  /notes/{id}/sign:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Expediente clínico], summary: 'Firma digital (re-autenticación + SHA-256) · odontologo', requestBody: { content: { application/json: { schema: { type: object, properties: { password: { type: string } } } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/consents:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Consentimientos informados (RF-06), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Expediente clínico], summary: Generar consentimiento desde plantilla, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /consents/{id}/sign:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Expediente clínico], summary: Firmar con firma manuscrita (PNG base64), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /consents/{id}/otp:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Expediente clínico], summary: Enviar OTP al paciente (10 min), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /consents/{id}/verify-otp:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Expediente clínico], summary: Firmar validando el OTP, responses: { '200': { $ref: '#/components/responses/Ok' }, '400': { $ref: '#/components/responses/Error' } } }
+  /consents/{id}/revoke:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Expediente clínico], summary: Revocar consentimiento, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /patients/{id}/prescriptions:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Recetas, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Expediente clínico], summary: 'Emitir receta (verifica alergias, 409 allergy_conflict) · odontologo', responses: { '201': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } } }
+  /patients/{id}/files:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Archivos (Rx, fotos, PDF), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post:
+      tags: [Expediente clínico]
+      summary: Cargar archivo (cifrado AES-256-GCM, máx. 15 MB)
+      requestBody: { content: { multipart/form-data: { schema: { type: object, properties: { file: { type: string, format: binary }, category: { type: string }, description: { type: string } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' } }
+  /files/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Expediente clínico], summary: Descargar / visualizar archivo descifrado, responses: { '200': { description: Contenido binario } } }
+
+  /patients/{id}/plans:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Planes y presupuestos], summary: Planes con totales (RF-07), responses: { '200': { $ref: '#/components/responses/List' } } }
+    post:
+      tags: [Planes y presupuestos]
+      summary: 'Crear plan por fases · odontologo'
+      requestBody: { content: { application/json: { schema: { type: object, properties: { title: { type: string }, dentist_id: { type: integer }, discount_pct: { type: number }, notes: { type: string }, items: { type: array, items: { $ref: '#/components/schemas/PlanItem' } } } } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '403': { $ref: '#/components/responses/Error' } }
+  /patients/{id}/billable:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Planes y presupuestos], summary: Procedimientos realizados pendientes de facturar, responses: { '200': { $ref: '#/components/responses/List' } } }
+  /plans/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Planes y presupuestos], summary: Detalle del plan, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+    put: { tags: [Planes y presupuestos], summary: Editar título, notas y descuento, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /plans/{id}/items:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Planes y presupuestos], summary: Agregar procedimiento, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/PlanItem' } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /plans/{id}/present:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Planes y presupuestos], summary: Presentar presupuesto al paciente, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /plans/{id}/approve:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post:
+      tags: [Planes y presupuestos]
+      summary: Aprobación total o parcial (RF-08)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { item_ids: { type: array, items: { type: integer } }, approved_by_name: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' } }
+  /plan-items/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    delete: { tags: [Planes y presupuestos], summary: Quitar ítem propuesto, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /plan-items/{id}/complete:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Planes y presupuestos], summary: 'Marcar realizado: odontograma + descargo de insumos (RF-14)', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /appointments:
+    get:
+      tags: [Agenda]
+      summary: Citas por rango, sede, sillón o profesional (RF-09)
+      parameters:
+        - { $ref: '#/components/parameters/from' }
+        - { $ref: '#/components/parameters/to' }
+        - { name: office_id, in: query, schema: { type: integer } }
+        - { name: chair_id, in: query, schema: { type: integer } }
+        - { name: dentist_id, in: query, schema: { type: integer } }
+        - { name: patient_id, in: query, schema: { type: integer } }
+      responses: { '200': { $ref: '#/components/responses/List' } }
+    post:
+      tags: [Agenda]
+      summary: Agendar cita (valida sillón · RN-03) y enviar confirmación
+      requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Appointment' } } } }
+      responses: { '201': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+  /appointments/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    put: { tags: [Agenda], summary: Reprogramar, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Appointment' } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /appointments/{id}/status:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post:
+      tags: [Agenda]
+      summary: Cambiar estado (RF-10)
+      requestBody: { content: { application/json: { schema: { type: object, properties: { status: { type: string, enum: [programado, confirmado, en_espera, en_atencion, atendido, cancelado, no_asistio] }, reason: { type: string } } } } } }
+      responses: { '200': { $ref: '#/components/responses/Ok' }, '409': { $ref: '#/components/responses/Error' } }
+  /appointments/{id}/log:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Agenda], summary: Trazabilidad de estados, responses: { '200': { $ref: '#/components/responses/List' } } }
+  /notifications:
+    get: { tags: [Agenda], summary: Mensajes enviados (RF-11), responses: { '200': { $ref: '#/components/responses/List' } } }
+  /notifications/run:
+    post: { tags: [Agenda], summary: 'Ejecutar barrido de recordatorios 48h/24h · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+
+  /invoices:
+    get: { tags: [Facturación y caja], summary: Comprobantes, parameters: [{ $ref: '#/components/parameters/from' }, { $ref: '#/components/parameters/to' }, { name: status, in: query, schema: { type: string } }, { name: q, in: query, schema: { type: string } }], responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Facturación y caja], summary: Emitir factura electrónica con pagos mixtos (RF-12), requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Invoice' } } } }, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /invoices/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Facturación y caja], summary: Detalle con ítems y pagos, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /invoices/{id}/payments:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Facturación y caja], summary: Registrar abono, requestBody: { content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } } }, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /invoices/{id}/void:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Facturación y caja], summary: 'Anular comprobante · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /cash/current:
+    get: { tags: [Facturación y caja], summary: Caja abierta del usuario (sin total teórico · RN-02), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /cash/open:
+    post: { tags: [Facturación y caja], summary: Abrir caja, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /cash/close:
+    post: { tags: [Facturación y caja], summary: Cierre ciego (declara conteo y luego revela teórico y diferencia), responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /cash/sessions:
+    get: { tags: [Facturación y caja], summary: Historial de cierres, responses: { '200': { $ref: '#/components/responses/List' } } }
+
+  /commissions/rules:
+    get: { tags: [Honorarios], summary: Reglas de comisión, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Honorarios], summary: 'Crear regla (porcentaje, fijo, porcentaje_neto) · admin', responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /commissions/rules/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    put: { tags: [Honorarios], summary: Editar regla, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /commissions/report:
+    get: { tags: [Honorarios], summary: Liquidación calculada por profesional (RF-13), parameters: [{ $ref: '#/components/parameters/from' }, { $ref: '#/components/parameters/to' }, { name: dentist_id, in: query, schema: { type: integer } }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /commissions/settlements:
+    get: { tags: [Honorarios], summary: Liquidaciones emitidas, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Honorarios], summary: 'Emitir liquidación (evita períodos solapados) · admin, auditor', responses: { '201': { $ref: '#/components/responses/Ok' } } }
+
+  /supplies:
+    get: { tags: [Inventario], summary: Existencias con alerta de stock mínimo, responses: { '200': { $ref: '#/components/responses/List' } } }
+    post: { tags: [Inventario], summary: Crear insumo, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /supplies/{id}:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    put: { tags: [Inventario], summary: Editar insumo, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /supplies/{id}/movements:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    post: { tags: [Inventario], summary: Entrada, salida o ajuste por conteo, responses: { '201': { $ref: '#/components/responses/Ok' } } }
+  /stock-movements:
+    get: { tags: [Inventario], summary: Kardex, responses: { '200': { $ref: '#/components/responses/List' } } }
+  /procedures/{id}/recipe:
+    parameters: [{ $ref: '#/components/parameters/id' }]
+    get: { tags: [Inventario], summary: Receta estándar de consumo, responses: { '200': { $ref: '#/components/responses/List' } } }
+    put: { tags: [Inventario], summary: 'Reemplazar receta · admin', responses: { '200': { $ref: '#/components/responses/List' } } }
+
+  /reports/dashboard:
+    get: { tags: [Reportes], summary: Indicadores del día, responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /reports/revenue:
+    get: { tags: [Reportes], summary: 'Ingresos por día, método, procedimiento y profesional · admin, auditor', parameters: [{ $ref: '#/components/parameters/from' }, { $ref: '#/components/parameters/to' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /reports/appointments:
+    get: { tags: [Reportes], summary: Productividad, ausentismo y ocupación de sillones, parameters: [{ $ref: '#/components/parameters/from' }, { $ref: '#/components/parameters/to' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
+  /reports/inventory:
+    get: { tags: [Reportes], summary: Consumo valorizado por insumo, profesional y sede, parameters: [{ $ref: '#/components/parameters/from' }, { $ref: '#/components/parameters/to' }], responses: { '200': { $ref: '#/components/responses/Ok' } } }
