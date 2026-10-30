@@ -1,0 +1,38 @@
+# Blueprint de Render: base de datos PostgreSQL + servicio web (API + frontend).
+# En Render: New → Blueprint → seleccionar este repositorio.
+
+databases:
+  - name: sigo-dental-db
+    plan: free
+    region: oregon
+    databaseName: sigo_dental
+    user: sigo
+
+services:
+  - type: web
+    name: sigo-dental
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sigo-dental-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FILE_ENCRYPTION_KEY
+        generateValue: true
+      - key: APP_TIMEZONE
+        value: America/Guayaquil
+      # Integraciones: se completan en el panel de Render (no se suben a GitHub)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_NAME
+        value: Clínica Odontológica Sonrisa Integral
